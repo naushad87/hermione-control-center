@@ -1,0 +1,23 @@
+[
+  {"source_id": "arxiv", "tier": 1, "score": 0.9, "extract": true, "council": true, "enrichment": false, "record_count": 0, "last_mtime": "never", "status": "ACTIVE", "market_tags": ["universal"]},
+  {"source_id": "hf_papers", "tier": 2, "score": 0.7, "extract": false, "council": true, "enrichment": true, "record_count": 50, "last_mtime": "2026-05-20T09:45:00Z", "status": "ENRICHMENT", "market_tags": ["universal"]},
+  {"source_id": "openreview", "tier": 1, "score": 0.95, "extract": false, "council": false, "enrichment": true, "record_count": 371, "last_mtime": "2026-05-20T09:30:00Z", "status": "ENRICHMENT", "market_tags": ["universal"]},
+  {"source_id": "papers_with_code", "tier": 2, "score": 0.8, "extract": false, "council": false, "enrichment": true, "record_count": 141, "last_mtime": "2026-05-20T09:32:00Z", "status": "ENRICHMENT", "market_tags": ["universal"]},
+  {"source_id": "lab_blogs", "tier": 3, "score": 0.85, "extract": true, "council": true, "enrichment": false, "record_count": 78, "last_mtime": "2026-05-20T09:50:00Z", "status": "ACTIVE", "market_tags": ["universal"]},
+  {"source_id": "ai_newsletters", "tier": 4, "score": 0.7, "extract": true, "council": true, "enrichment": false, "record_count": 0, "last_mtime": "never", "status": "ACTIVE", "market_tags": ["universal"]},
+  {"source_id": "macro_newsletters", "tier": 4, "score": 0.7, "extract": true, "council": true, "enrichment": false, "record_count": 7, "last_mtime": "2026-05-20T12:30:00Z", "status": "ACTIVE", "market_tags": ["macro", "rates", "fx", "commodities"]},
+  {"source_id": "hacker_news", "tier": 5, "score": 0.6, "extract": true, "council": true, "enrichment": false, "record_count": 0, "last_mtime": "never", "status": "ACTIVE", "market_tags": ["universal"]},
+  {"source_id": "reddit_ai_papers", "tier": 5, "score": 0.5, "extract": true, "council": true, "enrichment": false, "record_count": 0, "last_mtime": "never", "status": "ACTIVE", "market_tags": ["universal", "crypto"]},
+  {"source_id": "aaf_lesswrong", "tier": 5, "score": 0.75, "extract": true, "council": true, "enrichment": false, "record_count": 0, "last_mtime": "never", "status": "ACTIVE", "market_tags": ["universal"]},
+  {"source_id": "researcher_sites", "tier": 6, "score": 0.8, "extract": true, "council": true, "enrichment": false, "record_count": 27, "last_mtime": "2026-05-20T10:00:00Z", "status": "ACTIVE", "market_tags": ["universal"]},
+  {"source_id": "quant_code", "tier": 7, "score": 0.7, "extract": true, "council": true, "enrichment": false, "record_count": 0, "last_mtime": "never", "status": "ACTIVE", "market_tags": ["universal"]},
+  {"source_id": "github_trending", "tier": 7, "score": 0.7, "extract": true, "council": true, "enrichment": false, "record_count": 0, "last_mtime": "never", "status": "ACTIVE", "market_tags": ["universal"]},
+  {"source_id": "sec_edgar", "tier": 8, "score": 0.8, "extract": true, "council": true, "enrichment": false, "record_count": 25, "last_mtime": "2026-05-20T09:25:00Z", "status": "ACTIVE", "market_tags": ["equities", "macro"]},
+  {"source_id": "cftc", "tier": 8, "score": 0.85, "extract": false, "council": false, "enrichment": false, "record_count": 345, "last_mtime": "2026-05-20T09:24:00Z", "status": "DETERMINISTIC", "market_tags": ["commodities", "equities", "macro", "fx"]},
+  {"source_id": "fred", "tier": 8, "score": 0.75, "extract": false, "council": false, "enrichment": false, "record_count": 89, "last_mtime": "2026-05-20T09:25:00Z", "status": "DETERMINISTIC", "market_tags": ["macro", "rates"]},
+  {"source_id": "ssrn", "tier": 1, "score": 0.95, "extract": true, "council": true, "enrichment": false, "record_count": 0, "last_mtime": "never", "status": "ACTIVE_DEGRADED", "market_tags": ["equities", "options", "macro"], "note": "Cloudflare 403; needs Scrapling fallback"},
+  {"source_id": "nber", "tier": 1, "score": 0.95, "extract": true, "council": true, "enrichment": false, "record_count": 20, "last_mtime": "2026-05-20T14:08:00Z", "status": "ACTIVE", "market_tags": ["macro", "rates", "equities", "fx"]},
+  {"source_id": "bis", "tier": 1, "score": 0.95, "extract": true, "council": true, "enrichment": false, "record_count": 13, "last_mtime": "2026-05-20T14:08:00Z", "status": "ACTIVE", "market_tags": ["macro", "rates", "fx"]},
+  {"source_id": "swe_bench", "tier": 10, "score": 0.85, "extract": true, "council": true, "enrichment": false, "record_count": 9, "last_mtime": "2026-05-20T13:55:00Z", "status": "ACTIVE", "market_tags": ["universal"]},
+  {"source_id": "quant_forums", "tier": 5, "score": 0.5, "extract": true, "council": true, "enrichment": false, "record_count": 1, "last_mtime": "2026-05-20T14:30:00Z", "status": "ACTIVE", "market_tags": ["universal"]}
+]

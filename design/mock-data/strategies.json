@@ -1,0 +1,7 @@
+[
+  {"id": "channel_scalp", "name": "Channel Scalper", "mode": "live", "size_usd": 1000, "positions_open": 0, "today_trades": 0, "today_pnl": 0, "win_rate_7d": 0.43, "halo": "neutral", "kb_inspirations": ["arxiv", "lab_blogs"]},
+  {"id": "council_paper", "name": "Council (paper)", "mode": "paper", "size_usd": 250, "positions_open": 3, "today_trades": 12, "today_pnl": 18.42, "win_rate_7d": 0.58, "halo": "winning", "kb_inspirations": ["ai_newsletters", "papers_with_code"]},
+  {"id": "herd_fib_scalp", "name": "Herd Fib Scalper", "mode": "paper", "size_usd": 250, "positions_open": 1, "today_trades": 4, "today_pnl": 5.10, "win_rate_7d": 0.61, "halo": "winning", "kb_inspirations": ["arxiv"]},
+  {"id": "scanner_e", "name": "Scanner-E (Solana alpha wallets)", "mode": "live", "size_usd": 100, "positions_open": 0, "today_trades": 0, "today_pnl": 0, "win_rate_7d": null, "halo": "neutral", "kb_inspirations": []},
+  {"id": "oanda_xauusd", "name": "OANDA XAUUSD Scalper", "mode": "live", "size_usd": 200, "positions_open": 0, "today_trades": 2, "today_pnl": -4.75, "win_rate_7d": 0.0, "halo": "losing", "kb_inspirations": ["fred", "cftc"]}
+]

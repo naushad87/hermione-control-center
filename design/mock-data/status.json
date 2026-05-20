@@ -1,0 +1,23 @@
+{
+  "balance_usd": 686.07,
+  "balance_delta_24h_usd": -47.38,
+  "positions": [
+    {"coin": "NEAR", "side": "SHORT", "entry_px": 1.57899, "size_usd": 250.00, "uPnL_usd": -55.24, "managed_by": "naushad"},
+    {"coin": "HYPE", "side": "SHORT", "entry_px": 42.996, "size_usd": 250.00, "uPnL_usd": -259.60, "managed_by": "naushad"}
+  ],
+  "today_pnl_usd": -47.38,
+  "today_trades": {"total": 27, "wins": 1, "losses": 26},
+  "services": {
+    "hermione": "active",
+    "hermione-paper-s249": "active",
+    "scanner-e": "active",
+    "council-paper": "active",
+    "herd-fib-scalper": "active",
+    "hermione-dashboard": "active",
+    "yt-discovery": "active",
+    "oanda-xauusd-scalper": "active"
+  },
+  "circuit_breaker": false,
+  "mood": "calm",
+  "session_day": 60
+}
