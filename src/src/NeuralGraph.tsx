@@ -648,6 +648,102 @@ function TopChrome({ meta, status, oracle }) {
 }
 
 // ─── Left rail ────────────────────────────────────────────────────
+// ─── Token Briefs Widget ──────────────────────────────────────────
+const FLAG_COLOR = { long_bias: '#00f5c4', short_bias: '#ff3d5a', neutral: '#7d9aa0' };
+const FLAG_LABEL = { long_bias: '▲ LONG', short_bias: '▼ SHORT', neutral: '─ NEUT' };
+
+function TokenBriefsWidget() {
+  const [briefs, setBriefs] = useState([]);
+  const [lastFetch, setLastFetch] = useState(0);
+
+  useEffect(() => {
+    const load = () => {
+      const now = Date.now();
+      if (now - lastFetch < 60000) return; // 60s cache
+      fetch('/api/control/token_briefs', { credentials: 'include' })
+        .then(r => r.ok ? r.json() : [])
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            setBriefs(data);
+            setLastFetch(Date.now());
+          }
+        })
+        .catch(() => {});
+    };
+    load();
+    const iv = setInterval(load, 60000);
+    return () => clearInterval(iv);
+  }, [lastFetch]);
+
+  if (!briefs.length) return null;
+
+  // Sort: short_bias first (risk), then long_bias, then neutral
+  const sorted = [...briefs].sort((a, b) => {
+    const order = { short_bias: 0, long_bias: 1, neutral: 2 };
+    return (order[a.momentum_flag] ?? 2) - (order[b.momentum_flag] ?? 2);
+  });
+
+  return (
+    <section className="panel" style={{ marginTop: 8 }}>
+      <header className="panel__head">
+        <span>CATALYST BRIEFS</span>
+        <span className="count">{briefs.length}</span>
+      </header>
+      <div className="panel__body" style={{ maxHeight: 280, overflowY: 'auto' }}>
+        {sorted.map(b => {
+          const flag = b.momentum_flag || 'neutral';
+          const col = FLAG_COLOR[flag] || '#7d9aa0';
+          const conv = Math.round((b.conviction || 0) * 100);
+          const topCat = (b.catalysts || [])[0];
+          return (
+            <div key={b.token} style={{
+              padding: '4px 0',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+            }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '36px 64px 1fr 28px',
+                gap: 4,
+                alignItems: 'center',
+              }}>
+                <span style={{ color: 'var(--text)', fontWeight: 700, fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>
+                  {b.token}
+                </span>
+                <span style={{ color: col, fontSize: 9.5, fontFamily: 'Share Tech Mono, monospace', letterSpacing: '0.05em' }}>
+                  {FLAG_LABEL[flag]}
+                </span>
+                {/* conviction bar */}
+                <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 2, height: 4, overflow: 'hidden' }}>
+                  <div style={{ width: `${conv}%`, height: '100%', background: col, opacity: 0.8 }} />
+                </div>
+                <span style={{ color: 'var(--text-3)', fontSize: 9, fontFamily: 'Share Tech Mono, monospace', textAlign: 'right' }}>
+                  {conv}%
+                </span>
+              </div>
+              {topCat && (
+                <div style={{
+                  fontSize: 9.5,
+                  color: 'var(--text-2)',
+                  marginTop: 2,
+                  lineHeight: 1.4,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '100%',
+                }} title={topCat.headline}>
+                  {topCat.impact === 'structural-bullish' || topCat.impact === 'bullish' ? '↑' :
+                   topCat.impact === 'structural-bearish' || topCat.impact === 'bearish' ? '↓' : '→'}{' '}
+                  {topCat.headline}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function LeftRail({ rings, setRings, data }) {
   const counts = useMemo(() => {
     const c = {};
@@ -722,6 +818,8 @@ function LeftRail({ rings, setRings, data }) {
           ))}
         </div>
       </section>
+
+      <TokenBriefsWidget />
     </div>
   );
 }
@@ -881,6 +979,128 @@ function IdleHint() {
 }
 
 // ─── Main ControlCenter component ────────────────────────────────
+// ─── PositionAlertBanner — full-width amber banner for position alerts ────────
+function PositionAlertBanner() {
+  const [alerts, setAlerts] = useState([]);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [dismissing, setDismissing] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/control/position_alerts');
+        const data = await res.json();
+        if (alive) setAlerts((data.alerts || []).filter(a => a.unread && !a.dismissed));
+      } catch (_) {}
+    };
+    poll();
+    const id = setInterval(poll, 30000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
+  const dismiss = async (token) => {
+    setDismissing(token);
+    try {
+      await fetch(`/api/control/position_alerts/${token}/dismiss`, { method: 'POST' });
+      setAlerts(prev => prev.filter(a => a.token !== token));
+    } catch (_) {}
+    setDismissing(null);
+  };
+
+  if (alerts.length === 0) return null;
+
+  const sevColor = { high: '#ff3d5a', medium: '#f0a000', low: '#f0d75a' };
+
+  return (
+    <>
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+        background: 'linear-gradient(90deg, #7a4800 0%, #b06800 50%, #7a4800 100%)',
+        borderBottom: '2px solid #f0a000',
+        padding: '8px 16px',
+        display: 'flex', alignItems: 'center', gap: 12,
+        cursor: 'pointer',
+      }} onClick={() => setPanelOpen(p => !p)}>
+        <span style={{ fontSize: 18 }}>⚠</span>
+        <span style={{ color: '#ffe0a0', fontWeight: 700, fontSize: 13, letterSpacing: 1 }}>
+          POSITION ALERT — {alerts.length} catalyst conflict{alerts.length > 1 ? 's' : ''}
+        </span>
+        <span style={{ color: '#ffcc66', fontSize: 12 }}>
+          {alerts.map(a => `${a.token} ${a.direction} ← ${a.momentum_flag}`).join(' · ')}
+        </span>
+        <span style={{ marginLeft: 'auto', color: '#ffcc66', fontSize: 11 }}>
+          {panelOpen ? '▲ hide' : '▼ details'}
+        </span>
+      </div>
+      {panelOpen && (
+        <div style={{
+          position: 'fixed', top: 38, left: 0, right: 0, zIndex: 9998,
+          background: '#0d1a1f', border: '1px solid #f0a000',
+          padding: 16, maxHeight: '50vh', overflowY: 'auto',
+        }}>
+          {alerts.map(alert => (
+            <div key={alert.token} style={{
+              marginBottom: 16, padding: 12,
+              background: '#111f25', borderRadius: 6,
+              borderLeft: `4px solid ${sevColor[alert.severity] || '#f0a000'}`,
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#ffe0a0', fontWeight: 700, fontSize: 14 }}>
+                  {alert.token} — {alert.direction} position vs {alert.momentum_flag}
+                  {' '}
+                  <span style={{ color: sevColor[alert.severity] || '#f0a000', fontSize: 11 }}>
+                    [{alert.severity?.toUpperCase()}] conv={alert.conviction?.toFixed(2)}
+                  </span>
+                </span>
+                <button
+                  style={{
+                    background: '#2a3a42', color: '#aac', border: 'none',
+                    borderRadius: 4, padding: '3px 10px', cursor: 'pointer', fontSize: 11,
+                  }}
+                  onClick={e => { e.stopPropagation(); dismiss(alert.token); }}
+                  disabled={dismissing === alert.token}
+                >
+                  {dismissing === alert.token ? 'dismissing…' : 'Dismiss'}
+                </button>
+              </div>
+              {alert.ml_note && (
+                <div style={{ color: '#99b8c0', fontSize: 12, marginTop: 4 }}>
+                  {alert.ml_note}
+                </div>
+              )}
+              {(alert.catalysts || []).slice(0, 3).map((cat, i) => (
+                <div key={i} style={{
+                  color: '#7d9aa0', fontSize: 11, marginTop: 4,
+                  paddingLeft: 8, borderLeft: '2px solid #2a4a55',
+                }}>
+                  [{cat.date}] {cat.headline}
+                  {cat.url && (
+                    <a href={cat.url} target="_blank" rel="noreferrer"
+                      style={{ color: '#4a9ab0', marginLeft: 6, fontSize: 10 }}
+                      onClick={e => e.stopPropagation()}>
+                      link
+                    </a>
+                  )}
+                </div>
+              ))}
+              {alert.upnl !== undefined && (
+                <div style={{
+                  color: alert.upnl < 0 ? '#ff3d5a' : '#00f5c4',
+                  fontSize: 11, marginTop: 4,
+                }}>
+                  Unrealized P&L: {alert.upnl >= 0 ? '+' : ''}{alert.upnl?.toFixed(2)}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+
 export default function ControlCenter({ data, tweaks: tweaksProp }) {
   const tweaks = tweaksProp || { motion: 'on', speed: 1.0, stars: true };
   const { askState, setAskState, askResponse, setAskResponse, selected, setSelected } = useContext(AskContext);
@@ -935,6 +1155,7 @@ export default function ControlCenter({ data, tweaks: tweaksProp }) {
 
   return (
     <>
+      <PositionAlertBanner />
       <div className="stage" onClick={() => setSelected(null)}>
         <svg viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid meet">
           <Starfield count={tweaks.stars ? 110 : 0} />
