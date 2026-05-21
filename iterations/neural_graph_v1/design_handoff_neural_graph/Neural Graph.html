@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Hermione · Control Center · Neural Graph</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="neural-graph-assets/neural-graph.css" />
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="neural-graph-assets/neural-data.js"></script>
+<script type="text/babel" src="neural-graph-assets/tweaks-panel.jsx"></script>
+<script type="text/babel" src="neural-graph-assets/neural-ask.jsx"></script>
+<script type="text/babel" src="neural-graph-assets/neural-graph.jsx"></script>
+</head>
+<body>
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" fill="#040d0f"/>
+  <circle cx="100" cy="100" r="22" fill="none" stroke="#00f5c4" stroke-width="1.5"/>
+  <circle cx="100" cy="100" r="4" fill="#00f5c4"/>
+  <circle cx="100" cy="100" r="42" fill="none" stroke="#00f5c4" stroke-width="0.8" stroke-opacity="0.5" stroke-dasharray="2 4"/>
+  <circle cx="100" cy="100" r="62" fill="none" stroke="#00b8ff" stroke-width="0.6" stroke-opacity="0.4"/>
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#b87cff" stroke-width="0.4" stroke-opacity="0.3"/>
+  <circle cx="142" cy="100" r="3" fill="#00f5c4"/>
+  <circle cx="58" cy="100" r="3" fill="#00b8ff"/>
+  <circle cx="100" cy="58" r="3" fill="#ff3d5a"/>
+  <circle cx="100" cy="142" r="3" fill="#ffb454"/>
+  <circle cx="130" cy="70" r="2" fill="#f0d75a"/>
+  <circle cx="70" cy="130" r="2" fill="#b87cff"/>
+</svg>
+</template>
+<div id="root"></div>
+
+<script>
+// ─── Live-data switch ─────────────────────────────────────────────
+// ?live=1   → fetch from /api/status, /api/strategies, /api/kb/sources, /api/youtube/days
+// default   → use static neural-data.js mock for offline design preview
+const QP = new URLSearchParams(location.search);
+window.__HC_LIVE = QP.get("live") === "1";
+window.__HC_API  = QP.get("api") || "/api";
+
+window.__hcHydrate = async function () {
+  if (!window.__HC_LIVE) return;
+  try {
+    const [status, strategies, kb, yt, oracle] = await Promise.all([
+      fetch(window.__HC_API + "/status",        { credentials: "include" }).then(r => r.json()),
+      fetch(window.__HC_API + "/strategies",    { credentials: "include" }).then(r => r.json()),
+      fetch(window.__HC_API + "/kb/sources",    { credentials: "include" }).then(r => r.json()),
+      fetch(window.__HC_API + "/youtube/days",  { credentials: "include" }).then(r => r.json()),
+      fetch(window.__HC_API + "/oracle",        { credentials: "include" }).then(r => r.json()),
+    ]);
+    window.HC = {
+      ...window.HC,
+      status:        { ...window.HC.status, ...status },
+      strategies:    strategies,
+      kb_sources:    kb,
+      youtube_days:  yt,
+      oracle:        oracle,
+    };
+    if (window.__hcRoot && window.__hcApp) window.__hcRoot.render(window.__hcApp);
+  } catch (e) {
+    console.warn("[hc] live fetch failed, using mock:", e);
+  }
+};
+</script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "palette": "observatory",
+  "accent": {
+    "value": "mint",
+    "color": "#00f5c4"
+  },
+  "motion": "on",
+  "speed": 1,
+  "stars": true,
+  "scanlines": "subtle"
+}/*EDITMODE-END*/;
+
+function applyAccent(name) {
+  const root = document.documentElement;
+  const palettes = {
+    mint:   { c: "#00f5c4", soft: "rgba(0,245,196,0.12)", ring: "rgba(0,245,196,0.4)" },
+    blue:   { c: "#00b8ff", soft: "rgba(0,184,255,0.12)", ring: "rgba(0,184,255,0.4)" },
+    orange: { c: "#ffb454", soft: "rgba(255,180,84,0.12)", ring: "rgba(255,180,84,0.4)" },
+    pink:   { c: "#ff3d5a", soft: "rgba(255,61,90,0.12)", ring: "rgba(255,61,90,0.4)" },
+  };
+  const p = palettes[name] || palettes.mint;
+  root.style.setProperty("--accent", p.c);
+  root.style.setProperty("--accent-soft", p.soft);
+  root.style.setProperty("--accent-ring", p.ring);
+}
+
+// Whole-system palette — re-tints bg + lane colors. Reads from the
+// 5-stop bright palettes shown in the screenshot brief.
+function applyPalette(name) {
+  const root = document.documentElement;
+  const sys = {
+    // Current — dark teal-black observatory
+    "observatory": {
+      mode: "dark",
+      bg: "#040d0f", bg2: "#07171a", surface: "#0a1a1d", surface2: "#0f2429",
+      border: "#1a3a42", border2: "#2a5560",
+      lane: { research: "#00b8ff", macro: "#f0d75a", voice: "#ff3d5a",
+              code: "#00f5c4", self: "#b87cff", exec: "#ffb454" },
+      txt: { primary: "#ecf6f8", muted: "#7d9aa0", dim: "#4a6770", inkOn: "#040d0f" },
+    },
+    // Pure Ocean — navy → cyan gradient. Brightens everything cold.
+    "ocean": {
+      mode: "dark",
+      bg: "#020a1a", bg2: "#06122a", surface: "#0a1d36", surface2: "#0f2b48",
+      border: "#1b4071", border2: "#2c5d8e",
+      lane: { research: "#1976d2", macro: "#7ad9ff", voice: "#ff3d5a",
+              code: "#00d4ff", self: "#a4ecff", exec: "#ffb454" },
+      txt: { primary: "#eaf6ff", muted: "#8ab1d4", dim: "#506b89", inkOn: "#020a1a" },
+    },
+    // Beach Fair — deep teal bg with bright warm accents.
+    "beach": {
+      mode: "dark",
+      bg: "#08161e", bg2: "#0c2530", surface: "#102f3e", surface2: "#15394a",
+      border: "#1f4d62", border2: "#326580",
+      lane: { research: "#2a9d8f", macro: "#e9c46a", voice: "#e76f51",
+              code: "#2a9d8f", self: "#f4a261", exec: "#e9c46a" },
+      txt: { primary: "#f0f6f8", muted: "#88a8b0", dim: "#516e76", inkOn: "#08161e" },
+    },
+    // Pastel Earth — white-to-grey gradient bg with sage + warm-beige accents.
+    "pastel": {
+      mode: "light",
+      bg: "#f7f5f0", bg2: "#e8e6df", surface: "#f1efe9", surface2: "#e7e4dc",
+      border: "#d3cfc2", border2: "#b9b3a1",
+      lane: { research: "#7a8b6e", macro: "#caa37a", voice: "#b48a6b",
+              code: "#a3b09c", self: "#6f7a64", exec: "#dca992" },
+      txt: { primary: "#2a261f", muted: "#5d544a", dim: "#8a8175", inkOn: "#f7f5f0" },
+    },
+    // Woodsy — white-to-grey bg with olive + ochre + cream accents.
+    "woodsy": {
+      mode: "light",
+      bg: "#fcfaf2", bg2: "#ecead8", surface: "#f7f4e6", surface2: "#eee9d2",
+      border: "#cfc8a8", border2: "#a39b78",
+      lane: { research: "#5b6b3e", macro: "#c69037", voice: "#a14a2a",
+              code: "#7d8a55", self: "#3f4a26", exec: "#d8a04a" },
+      txt: { primary: "#28210f", muted: "#5a4f2e", dim: "#857a55", inkOn: "#fcfaf2" },
+    },
+  };
+  const p = sys[name] || sys.observatory;
+  root.style.setProperty("--bg",        p.bg);
+  root.style.setProperty("--bg-2",      p.bg2);
+  root.style.setProperty("--surface",   p.surface);
+  root.style.setProperty("--surface-2", p.surface2);
+  root.style.setProperty("--border",    p.border);
+  root.style.setProperty("--border-2",  p.border2);
+  root.style.setProperty("--text",      p.txt.primary);
+  root.style.setProperty("--text-2",    p.txt.primary);
+  root.style.setProperty("--text-3",    p.txt.muted);
+  root.style.setProperty("--text-mute", p.txt.dim);
+  root.style.setProperty("--lane-research", p.lane.research);
+  root.style.setProperty("--lane-macro",    p.lane.macro);
+  root.style.setProperty("--lane-voice",    p.lane.voice);
+  root.style.setProperty("--lane-code",     p.lane.code);
+  root.style.setProperty("--lane-self",     p.lane.self);
+  root.style.setProperty("--lane-exec",     p.lane.exec);
+  // SVG fill literals read from these
+  window.LANE_COLOR_RAW_OVERRIDE = p.lane;
+  window.TXT_RAW_OVERRIDE = p.txt;
+  // Tell the CSS to switch ambient effects for light mode
+  document.documentElement.dataset.palette = name;
+  document.documentElement.dataset.mode = p.mode;
+}
+
+function applyScanlines(v) {
+  // baseline body::before is 'subtle'; heavy doubles the opacity, off hides
+  const id = "__hc_scanline_override";
+  let st = document.getElementById(id);
+  if (!st) { st = document.createElement("style"); st.id = id; document.head.appendChild(st); }
+  st.textContent = v === "off"
+    ? `body::before { display: none; }`
+    : v === "heavy"
+      ? `body::before { background: repeating-linear-gradient(180deg, rgba(0,245,196,0.05) 0, rgba(0,245,196,0.05) 1px, transparent 1px, transparent 3px) !important; }`
+      : ``;
+}
+
+function Root() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  React.useEffect(() => { applyPalette(t.palette); }, [t.palette]);
+  React.useEffect(() => { applyAccent(t.accent); }, [t.accent]);
+  React.useEffect(() => { applyScanlines(t.scanlines); }, [t.scanlines]);
+  return (
+    <>
+      <window.NeuralGraph.ControlCenter tweaks={t} />
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="System palette" />
+        <TweakRadio
+          label="Palette"
+          value={t.palette}
+          options={["observatory", "ocean", "beach", "pastel", "woodsy"]}
+          onChange={(v) => setTweak("palette", v)}
+        />
+        <TweakSection label="Accent" />
+        <TweakColor
+          label="Accent"
+          value={t.accent}
+          options={[
+            { value: "mint",   color: "#00f5c4" },
+            { value: "blue",   color: "#00b8ff" },
+            { value: "orange", color: "#ffb454" },
+            { value: "pink",   color: "#ff3d5a" },
+          ]}
+          onChange={(v) => setTweak("accent", v)}
+        />
+        <TweakSection label="Atmosphere" />
+        <TweakRadio
+          label="Scanlines"
+          value={t.scanlines}
+          options={["off", "subtle", "heavy"]}
+          onChange={(v) => setTweak("scanlines", v)}
+        />
+        <TweakToggle label="Star field"
+          value={t.stars}
+          onChange={(v) => setTweak("stars", v)} />
+        <TweakSection label="Motion" />
+        <TweakRadio
+          label="Orbit motion"
+          value={t.motion}
+          options={["off", "on"]}
+          onChange={(v) => setTweak("motion", v)}
+        />
+        <TweakSlider
+          label="Speed"
+          value={t.speed}
+          min={0.2} max={3.0} step={0.1}
+          onChange={(v) => setTweak("speed", v)}
+        />
+      </TweaksPanel>
+    </>
+  );
+}
+
+const app = <Root />;
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(app);
+window.__hcRoot = root;
+window.__hcApp  = app;
+window.__hcHydrate();
+</script>
+
+</body>
+</html>
