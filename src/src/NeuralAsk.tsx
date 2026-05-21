@@ -235,17 +235,36 @@ export default function AskGateway({ data }) {
     return () => clearInterval(id);
   }, [tickerLines.length]);
 
-  const ask = (q) => {
+  const ask = async (q) => {
     if (!q.trim()) return;
     setQuery(q);
     setAskState('thinking');
     setAskResponse(null);
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/control/ask', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q }),
+      });
+      const json = await res.json();
+      const ans = {
+        eyebrow: 'READOUT',
+        text: json.text || 'No answer returned.',
+        highlights: json.highlights || [],
+        follow_ups: json.follow_up_suggestions || [],
+        focus: (json.highlights && json.highlights[0]) || null,
+      };
+      setAskResponse({ ...ans, query: q });
+      setAskState('answered');
+      if (ans.focus) setSelected(ans.focus);
+    } catch (_err) {
+      // fallback to canned on network error
       const ans = matchCanned(q, data);
       setAskResponse({ ...ans, query: q });
       setAskState('answered');
       if (ans.focus) setSelected(ans.focus);
-    }, 600);
+    }
   };
 
   const clear = () => {

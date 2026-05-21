@@ -158,62 +158,35 @@ function computePositions(data, rotate) {
 }
 
 // ─── relations ────────────────────────────────────────────────────
-function relatedNodes(selKey, data) {
-  if (!selKey) return [];
-  const [kind, id] = selKey.split(':');
-  if (kind === 'svc') {
-    if (id === 'hermione')           return ['str:channel_scalp', 'str:breakout'];
-    if (id === 'hermione-paper-s249') return ['str:herd_fib_scalp', 'str:privacy_pair', 'str:commodity_scalp'];
-    if (id === 'scanner-e')          return ['kb:autopsy_log', 'kb:github_personal'];
-    if (id === 'council-paper')      return ['str:council_paper', 'kb:arxiv', 'kb:ssrn', 'kb:hf_papers'];
-    if (id === 'herd-fib-scalper')   return ['str:herd_fib_scalp'];
-    if (id === 'yt-discovery')       return ['kb:youtube', 'kb:podcast_otter', 'kb:substack'];
-    if (id === 'hermione-dashboard') return ['kb:hyperliquid_fills', 'kb:changelog'];
-    if (id === 'oracle-v4-retrain')  return ['kb:hyperliquid_fills', 'kb:lessons_learned'];
+// Async fetch from backend; results cached in a module-level Map.
+const _relationsCache: Map<string, string[]> = new Map();
+const _relationsInflight: Set<string> = new Set();
+
+async function fetchRelatedNodes(nodeId: string): Promise<string[]> {
+  if (_relationsCache.has(nodeId)) return _relationsCache.get(nodeId)!;
+  if (_relationsInflight.has(nodeId)) return [];
+  _relationsInflight.add(nodeId);
+  try {
+    const res = await fetch(`/api/control/relations/${encodeURIComponent(nodeId)}`, {
+      credentials: 'same-origin',
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const peers: string[] = data.peers || [];
+    _relationsCache.set(nodeId, peers);
+    return peers;
+  } catch {
+    _relationsCache.set(nodeId, []);
     return [];
+  } finally {
+    _relationsInflight.delete(nodeId);
   }
-  if (kind === 'kb') {
-    const m = {
-      arxiv:           ['str:council_paper', 'str:channel_scalp'],
-      hf_papers:       ['str:council_paper'],
-      ssrn:            ['str:council_paper', 'str:commodity_scalp'],
-      openreview:      ['str:council_paper'],
-      fred:            ['str:commodity_scalp', 'str:council_paper'],
-      bls:             ['str:commodity_scalp'],
-      ecb:             ['str:commodity_scalp'],
-      bea:             ['str:commodity_scalp'],
-      youtube:         ['str:council_paper'],
-      substack:        ['str:council_paper'],
-      twitter_curated: [],
-      podcast_otter:   [],
-      github_trending: ['str:channel_scalp'],
-      github_personal: ['str:channel_scalp', 'str:breakout', 'str:herd_fib_scalp'],
-      kernel_ml_blog:  [],
-      memory_md:       ['str:channel_scalp', 'str:breakout', 'str:herd_fib_scalp', 'str:council_paper'],
-      lessons_learned: ['str:channel_scalp', 'str:avgdown_grid'],
-      changelog:       [],
-      autopsy_log:     ['str:avgdown_grid'],
-      hyperliquid_fills: ['str:channel_scalp', 'str:breakout'],
-      oanda_fills:     ['str:oanda_xauusd'],
-    };
-    return m[id] || [];
-  }
-  if (kind === 'str') {
-    const m = {
-      channel_scalp:   ['svc:hermione', 'kb:hyperliquid_fills', 'kb:memory_md', 'kb:lessons_learned'],
-      council_paper:   ['svc:council-paper', 'kb:arxiv', 'kb:ssrn', 'kb:hf_papers', 'kb:fred'],
-      herd_fib_scalp:  ['svc:herd-fib-scalper', 'kb:github_personal'],
-      scanner_e:       ['svc:scanner-e', 'kb:autopsy_log'],
-      oanda_xauusd:    ['kb:oanda_fills'],
-      breakout:        ['svc:hermione', 'kb:hyperliquid_fills'],
-      privacy_pair:    ['svc:hermione-paper-s249', 'kb:github_personal'],
-      commodity_scalp: ['kb:fred', 'kb:bls', 'kb:ecb', 'kb:bea'],
-      council_live:    [],
-      avgdown_grid:    ['kb:autopsy_log', 'kb:lessons_learned'],
-    };
-    return m[id] || [];
-  }
-  return [];
+}
+
+// Synchronous accessor — returns cached result or [] while fetch is in progress.
+function relatedNodes(selKey: string | null, _data: any): string[] {
+  if (!selKey) return [];
+  return _relationsCache.get(selKey) || [];
 }
 
 // ─── Starfield ────────────────────────────────────────────────────
@@ -914,6 +887,13 @@ export default function ControlCenter({ data, tweaks: tweaksProp }) {
 
   const [hovered, setHovered] = useState(null);
   const [rings, setRings] = useState({ r1: true, r2: true, r3: true, r4: true });
+  // Trigger re-render after relation fetch completes so rays appear.
+  const [, setRelTick] = useState(0);
+  useEffect(() => {
+    if (!selected) return;
+    if (_relationsCache.has(selected)) return;
+    fetchRelatedNodes(selected).then(() => setRelTick(t => t + 1));
+  }, [selected]);
 
   const [rotate, setRotate] = useState(0);
   useAnimationFrame(useCallback((dt) => {
