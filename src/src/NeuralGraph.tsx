@@ -7,6 +7,7 @@
    ────────────────────────────────────────────────────────────────── */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, createContext, useContext } from 'react';
+import type { ScannerEPosition } from './useLiveData';
 
 // ─── geometry constants ───────────────────────────────────────────
 const VW = 1600, VH = 1000;
@@ -978,6 +979,33 @@ function IdleHint() {
   );
 }
 
+// ─── OpenPositionsPanel — SVG overlay for scanner-e open positions ───────────
+function OpenPositionsPanel({ positions }: { positions: ScannerEPosition[] }) {
+  if (!positions || positions.length === 0) return null;
+  return (
+    <g transform="translate(20, 20)">
+      <text x="0" y="0" fill="#94a3b8" fontSize="11" fontFamily="monospace" fontWeight="600">
+        {`SCANNER-E  ${positions.length} OPEN`}
+      </text>
+      {positions.map((pos, i) => {
+        const pnlColor = pos.pnl_pct === null ? '#64748b'
+          : pos.pnl_pct >= 0 ? '#22c55e' : '#ef4444';
+        const pnlStr = pos.pnl_pct === null ? '  ...  '
+          : `${pos.pnl_pct >= 0 ? '+' : ''}${pos.pnl_pct.toFixed(1)}%`;
+        const holdStr = pos.hold_minutes != null ? `${Math.round(pos.hold_minutes)}m` : '';
+        return (
+          <g key={pos.diy_pid} transform={`translate(0, ${18 + i * 17})`}>
+            <rect x="-3" y="-13" width="200" height="15" fill="#0f172a" rx="2" opacity="0.85" />
+            <text x="0" y="0" fill="#cbd5e1" fontSize="10" fontFamily="monospace">{pos.ticker}</text>
+            <text x="70" y="0" fill={pnlColor} fontSize="10" fontFamily="monospace" fontWeight="bold">{pnlStr}</text>
+            <text x="128" y="0" fill="#475569" fontSize="9" fontFamily="monospace">{holdStr}</text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 // ─── Main ControlCenter component ────────────────────────────────
 // ─── PositionAlertBanner — full-width amber banner for position alerts ────────
 function PositionAlertBanner() {
@@ -1122,6 +1150,7 @@ export default function ControlCenter({ data, tweaks: tweaksProp }) {
   }, [tweaks.motion, tweaks.speed]));
 
   const positions = useMemo(() => computePositions(data, rotate), [data, rotate]);
+  const scanner_e_positions = (data as any).scanner_e_positions ?? [];
 
   const highlights = useMemo(() => {
     const set = new Set();
@@ -1159,6 +1188,7 @@ export default function ControlCenter({ data, tweaks: tweaksProp }) {
       <div className="stage" onClick={() => setSelected(null)}>
         <svg viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid meet">
           <Starfield count={tweaks.stars ? 110 : 0} />
+          <OpenPositionsPanel positions={scanner_e_positions} />
 
           <g transform={camTransform}>
             {rings.r4 && (

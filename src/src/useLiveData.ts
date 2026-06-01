@@ -2,6 +2,20 @@
 import { useState, useEffect, useRef } from 'react';
 import HC from './data';
 
+export interface ScannerEPosition {
+  diy_pid: string;
+  mint: string;
+  ticker: string;
+  entry_price_sol: number | null;
+  spot_price_sol: number | null;
+  pnl_pct: number | null;
+  peak_price_sol: number | null;
+  entry_mcap_usd: number | null;
+  size_usd: number | null;
+  ts_open: number | null;
+  hold_minutes: number | null;
+}
+
 export interface LiveData {
   status: typeof HC['status'];
   strategies: typeof HC['strategies'];
@@ -9,6 +23,7 @@ export interface LiveData {
   youtube_days: typeof HC['youtube_days'];
   oracle: typeof HC['oracle'];
   meta: typeof HC['meta'];
+  scanner_e_positions: ScannerEPosition[];
 }
 
 interface UseLiveDataResult {
@@ -34,6 +49,7 @@ export function useLiveData(): UseLiveDataResult {
     youtube_days: HC.youtube_days,
     oracle: HC.oracle,
     meta: HC.meta,
+    scanner_e_positions: [],
   });
   const [isLive, setIsLive] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -84,6 +100,13 @@ export function useLiveData(): UseLiveDataResult {
     catch (e: unknown) { handleErr(String(e)); }
   }
 
+  async function fetchScannerEPositions() {
+    try {
+      const posData = await fetchJSON('/api/control/scanner_e/positions') as { positions: ScannerEPosition[] };
+      mergeKey('scanner_e_positions', posData.positions ?? []);
+    } catch (e: unknown) { handleErr(`scanner_e_positions: ${String(e)}`); }
+  }
+
   useEffect(() => {
     // Initial parallel fetch
     Promise.all([
@@ -92,14 +115,16 @@ export function useLiveData(): UseLiveDataResult {
       fetchKbSources(),
       fetchYoutubeDays(),
       fetchOracle(),
+      fetchScannerEPositions(),
     ]).catch(() => {});
 
     // Individual polling intervals
-    const t1 = setInterval(fetchStatus,      2_000);
-    const t2 = setInterval(fetchStrategies,  5_000);
-    const t3 = setInterval(fetchKbSources,  60_000);
-    const t4 = setInterval(fetchYoutubeDays,300_000);
-    const t5 = setInterval(fetchOracle,      60_000);
+    const t1 = setInterval(fetchStatus,             2_000);
+    const t2 = setInterval(fetchStrategies,         5_000);
+    const t3 = setInterval(fetchKbSources,         60_000);
+    const t4 = setInterval(fetchYoutubeDays,      300_000);
+    const t5 = setInterval(fetchOracle,            60_000);
+    const t6 = setInterval(fetchScannerEPositions, 15_000);
 
     return () => {
       clearInterval(t1);
@@ -107,6 +132,7 @@ export function useLiveData(): UseLiveDataResult {
       clearInterval(t3);
       clearInterval(t4);
       clearInterval(t5);
+      clearInterval(t6);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
