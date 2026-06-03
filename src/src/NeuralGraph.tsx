@@ -1129,6 +1129,194 @@ function PositionAlertBanner() {
 }
 
 
+// ─── ReversalPaperPanel — bottom-right overlay for S288 paper grid ────────────
+function ReversalPaperPanel({ data }: { data: any }) {
+  const [open, setOpen] = React.useState(false);
+  const rp = (data as any).reversal_paper;
+
+  // Always render the panel once data has loaded (even if empty)
+  const summary = rp?.summary ?? null;
+  const counters = rp?.counters ?? {};
+  const recent: any[] = rp?.recent ?? [];
+  const loaded = rp !== null && rp !== undefined;
+
+  const noTrades = !summary || summary.n_trades === 0;
+
+  const netPnl = summary?.net_pnl ?? 0;
+  const pnlColor = netPnl > 0 ? '#00f5c4' : netPnl < 0 ? '#ff3d5a' : '#7d9aa0';
+  const winRatePct = summary ? Math.round((summary.win_rate ?? 0) * 100) : 0;
+
+  const panelStyle: React.CSSProperties = {
+    position: 'fixed', bottom: 16, right: 16, zIndex: 900,
+    width: open ? 380 : 160,
+    background: '#0d1a1f',
+    border: '1px solid #1e3a45',
+    borderRadius: 8,
+    fontFamily: 'monospace',
+    fontSize: 11,
+    color: '#94a3b8',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+    transition: 'width 0.2s ease',
+    overflow: 'hidden',
+  };
+
+  const headerStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '7px 10px',
+    borderBottom: open ? '1px solid #1e3a45' : 'none',
+    cursor: 'pointer',
+    background: '#0a1318',
+    borderRadius: open ? '8px 8px 0 0' : 8,
+  };
+
+  return (
+    <div style={panelStyle}>
+      <div style={headerStyle} onClick={() => setOpen(o => !o)}>
+        <span style={{ color: '#00f5c4', fontWeight: 700, letterSpacing: 1, fontSize: 10 }}>
+          PAPER · REV-GRID
+        </span>
+        {loaded && !noTrades && (
+          <span style={{ color: pnlColor, fontWeight: 700, fontSize: 11 }}>
+            {netPnl >= 0 ? '+' : ''}{netPnl.toFixed(2)}
+          </span>
+        )}
+        {loaded && noTrades && (
+          <span style={{ color: '#4a6770', fontSize: 10 }}>no trades</span>
+        )}
+        <span style={{ color: '#4a6770', fontSize: 10 }}>{open ? '▲' : '▼'}</span>
+      </div>
+
+      {open && (
+        <div style={{ padding: '10px 12px', overflowY: 'auto', maxHeight: '70vh' }}>
+          {/* Summary stats */}
+          {noTrades ? (
+            <div style={{ color: '#4a6770', padding: '8px 0' }}>
+              No paper trades yet — waiting for first grid activation.
+            </div>
+          ) : (
+            <>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ color: '#7d9aa0', fontSize: 10, marginBottom: 4, letterSpacing: 1 }}>SUMMARY</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
+                  <div>Net P&L <span style={{ color: pnlColor, fontWeight: 700 }}>
+                    {netPnl >= 0 ? '+' : ''}{netPnl.toFixed(4)}
+                  </span></div>
+                  <div>Trades <span style={{ color: '#ecf6f8' }}>{summary.n_trades}</span></div>
+                  <div>Win rate <span style={{ color: winRatePct >= 50 ? '#00f5c4' : '#ff3d5a' }}>
+                    {winRatePct}%
+                  </span></div>
+                  <div>W/L <span style={{ color: '#ecf6f8' }}>
+                    {summary.wins ?? '-'}/{summary.losses ?? '-'}
+                  </span></div>
+                  {summary.avg_duration_min != null && (
+                    <div>Avg hold <span style={{ color: '#ecf6f8' }}>{summary.avg_duration_min}m</span></div>
+                  )}
+                  {summary.tp_maxloss_ratio != null && (
+                    <div>TP/MaxLoss <span style={{
+                      color: summary.tp_maxloss_ratio >= 1.5 ? '#00f5c4' : '#f0d75a',
+                    }}>{summary.tp_maxloss_ratio}x</span></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Exit type distribution */}
+              {Object.keys(summary.by_exit_type).length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#7d9aa0', fontSize: 10, marginBottom: 4, letterSpacing: 1 }}>EXIT TYPES</div>
+                  {Object.entries(summary.by_exit_type)
+                    .sort(([, a], [, b]) => (b as number) - (a as number))
+                    .map(([et, cnt]) => (
+                      <div key={et} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <span style={{ color: '#94a3b8' }}>{et}</span>
+                        <span style={{ color: '#ecf6f8' }}>{cnt as number}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              {/* Per-token breakdown */}
+              {Object.keys(summary.by_token).length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ color: '#7d9aa0', fontSize: 10, marginBottom: 4, letterSpacing: 1 }}>BY TOKEN</div>
+                  {Object.entries(summary.by_token)
+                    .sort(([, a], [, b]) => (b as any).net_pnl - (a as any).net_pnl)
+                    .slice(0, 8)
+                    .map(([coin, d]: any) => (
+                      <div key={coin} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <span style={{ color: '#94a3b8', width: 60 }}>{coin}</span>
+                        <span style={{ color: '#7d9aa0' }}>n={d.n_trades}</span>
+                        <span style={{ color: d.win_rate >= 0.5 ? '#00f5c4' : '#ff3d5a' }}>
+                          {Math.round(d.win_rate * 100)}%WR
+                        </span>
+                        <span style={{ color: d.net_pnl >= 0 ? '#00f5c4' : '#ff3d5a', fontWeight: 700 }}>
+                          {d.net_pnl >= 0 ? '+' : ''}{d.net_pnl.toFixed(4)}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Redis counters */}
+          {Object.keys(counters).length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ color: '#7d9aa0', fontSize: 10, marginBottom: 4, letterSpacing: 1 }}>REDIS COUNTERS</div>
+              {Object.entries(counters).map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                  <span style={{ color: '#4a6770' }}>{k}</span>
+                  <span style={{ color: '#ecf6f8' }}>{v as number}</span>
+                </div>
+              ))}
+              {counters.orders_placed > 0 && (
+                <div style={{ color: '#7d9aa0', marginTop: 4 }}>
+                  fill rate: {((counters.fills ?? 0) / counters.orders_placed * 100).toFixed(1)}%
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Recent trades table */}
+          {recent.length > 0 && (
+            <div>
+              <div style={{ color: '#7d9aa0', fontSize: 10, marginBottom: 4, letterSpacing: 1 }}>
+                RECENT TRADES ({recent.length})
+              </div>
+              <div style={{
+                overflowX: 'auto',
+                borderTop: '1px solid #1e3a45',
+                paddingTop: 6,
+              }}>
+                {recent.slice().reverse().slice(0, 20).map((t: any, i: number) => {
+                  const tPnl = t.net_pnl ?? 0;
+                  const tColor = tPnl >= 0 ? '#00f5c4' : '#ff3d5a';
+                  return (
+                    <div key={i} style={{
+                      display: 'flex', justifyContent: 'space-between',
+                      marginBottom: 3, fontSize: 10,
+                    }}>
+                      <span style={{ color: '#94a3b8', width: 52 }}>{t.coin ?? '—'}</span>
+                      <span style={{ color: '#4a6770', width: 68 }}>{t.exit_type ?? '—'}</span>
+                      <span style={{ color: tColor, fontWeight: 700 }}>
+                        {tPnl >= 0 ? '+' : ''}{tPnl.toFixed(4)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {!loaded && (
+            <div style={{ color: '#4a6770', padding: '8px 0' }}>Loading…</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function ControlCenter({ data, tweaks: tweaksProp }) {
   const tweaks = tweaksProp || { motion: 'on', speed: 1.0, stars: true };
   const { askState, setAskState, askResponse, setAskResponse, selected, setSelected } = useContext(AskContext);
@@ -1229,6 +1417,7 @@ export default function ControlCenter({ data, tweaks: tweaksProp }) {
       <TopChrome meta={data.meta} status={data.status} oracle={data.oracle} />
       <LeftRail rings={rings} setRings={setRings} data={data} />
       <Detail selected={selected} setSelected={setSelected} data={data} />
+      <ReversalPaperPanel data={data} />
     </>
   );
 }

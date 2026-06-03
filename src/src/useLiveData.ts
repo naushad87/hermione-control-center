@@ -16,6 +16,27 @@ export interface ScannerEPosition {
   hold_minutes: number | null;
 }
 
+export interface ReversalPaperSummary {
+  n_trades: number;
+  net_pnl: number;
+  gross_pnl: number;
+  win_rate: number;
+  wins?: number;
+  losses?: number;
+  avg_duration_min?: number;
+  tp_maxloss_ratio?: number | null;
+  by_exit_type: Record<string, number>;
+  by_token: Record<string, { n_trades: number; net_pnl: number; win_rate: number }>;
+  error?: string;
+}
+
+export interface ReversalPaperData {
+  summary: ReversalPaperSummary;
+  counters: Record<string, number>;
+  recent: Record<string, unknown>[];
+  ts: number;
+}
+
 export interface LiveData {
   status: typeof HC['status'];
   strategies: typeof HC['strategies'];
@@ -24,6 +45,7 @@ export interface LiveData {
   oracle: typeof HC['oracle'];
   meta: typeof HC['meta'];
   scanner_e_positions: ScannerEPosition[];
+  reversal_paper: ReversalPaperData | null;
 }
 
 interface UseLiveDataResult {
@@ -50,6 +72,7 @@ export function useLiveData(): UseLiveDataResult {
     oracle: HC.oracle,
     meta: HC.meta,
     scanner_e_positions: [],
+    reversal_paper: null,
   });
   const [isLive, setIsLive] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -107,6 +130,13 @@ export function useLiveData(): UseLiveDataResult {
     } catch (e: unknown) { handleErr(`scanner_e_positions: ${String(e)}`); }
   }
 
+  async function fetchReversalPaper() {
+    try {
+      const rpData = await fetchJSON('/api/control/reversal_paper') as ReversalPaperData;
+      mergeKey('reversal_paper', rpData);
+    } catch (e: unknown) { handleErr(`reversal_paper: ${String(e)}`); }
+  }
+
   useEffect(() => {
     // Initial parallel fetch
     Promise.all([
@@ -116,6 +146,7 @@ export function useLiveData(): UseLiveDataResult {
       fetchYoutubeDays(),
       fetchOracle(),
       fetchScannerEPositions(),
+      fetchReversalPaper(),
     ]).catch(() => {});
 
     // Individual polling intervals
@@ -125,6 +156,7 @@ export function useLiveData(): UseLiveDataResult {
     const t4 = setInterval(fetchYoutubeDays,      300_000);
     const t5 = setInterval(fetchOracle,            60_000);
     const t6 = setInterval(fetchScannerEPositions, 15_000);
+    const t7 = setInterval(fetchReversalPaper,     30_000);
 
     return () => {
       clearInterval(t1);
@@ -133,6 +165,7 @@ export function useLiveData(): UseLiveDataResult {
       clearInterval(t4);
       clearInterval(t5);
       clearInterval(t6);
+      clearInterval(t7);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
