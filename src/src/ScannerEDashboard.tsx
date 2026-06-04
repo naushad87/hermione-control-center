@@ -667,7 +667,7 @@ function PositionRow({ p, onClose, onAdd, meta, nativeUsd }) {
           <span style={{ color: 'var(--muted)', fontSize: 11 }}>{ageStr(p.opened)}</span>
           <DexLink mint={p.mint} slug={meta.dexSlug} />
           <AddButton onAdd={() => onAdd(p.mint)} />
-          <CloseButton onClose={() => onClose(p.mint)} />
+          <CloseButton onClose={() => onClose(p.pid || p.mint)} />
           <span style={{
             color: 'var(--muted)', fontSize: 12,
             transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s',
@@ -946,9 +946,9 @@ function MigrationFunnel({ funnel }) {
  *  POSITION NORMALIZATION                                            *
  * ----------------------------------------------------------------- */
 function normalizePosition(p, chain) {
-  // Map backend field names to the UI shape
   return {
     chain,
+    pid: p.pid || p.diy_pid || '',
     mint: p.mint || p.token_mint || '',
     ticker: p.ticker || shortMint(p.mint || p.token_mint || ''),
     entry: p.entry ?? p.entry_price_sol ?? 0,
@@ -958,7 +958,7 @@ function normalizePosition(p, chain) {
     sizeSol: p.sizeSol ?? p.size_sol ?? (p.size_usd ? p.size_usd / 168.4 : 0),
     tp: p.tp ?? p.tp_price_sol ?? 0,
     sl: p.sl ?? p.sl_price_sol ?? 0,
-    opened: p.opened ?? (p.opened_at ? new Date(p.opened_at).getTime() : p.ts_open ?? 0),
+    opened: p.opened ?? (p.opened_at ? parseFloat(p.opened_at) * 1000 : p.ts_open ?? 0),
     route: p.route || 'jupiter',
   };
 }
@@ -967,7 +967,7 @@ function normalizePosition(p, chain) {
  *  MAIN EXPORT                                                       *
  * ----------------------------------------------------------------- */
 export default function ScannerEDashboard({ onBack }: { onBack: () => void }) {
-  const { data, refreshIn, updateConfig } = useSniperData();
+  const { data, refreshIn, updateConfig, refetch } = useSniperData();
   const [activeChain, setActiveChain] = useState('sol');
   const [positions, setPositions] = useState([]);
 
@@ -995,7 +995,18 @@ export default function ScannerEDashboard({ onBack }: { onBack: () => void }) {
   const chainPaper = (data.paper[activeChain] || []);
   const nativeUsd = (data.stats.native_prices || {})[activeChain] || 168.4;
 
-  const handleClose = (mint) => setPositions(ps => ps.filter(p => !(p.mint === mint && p.chain === activeChain)));
+  const handleClose = async (pid) => {
+    // Optimistic removal
+    setPositions(ps => ps.filter(p => !(( p.pid === pid || p.mint === pid) && p.chain === activeChain)));
+    // Fire the real close — only Solana has the API endpoint; BSC/ETH are paper so just UI-remove
+    if (activeChain === 'sol' && pid && pid.includes('-')) {
+      try {
+        await fetch(`/api/control/diy/close/${encodeURIComponent(pid)}`, { method: 'POST' });
+      } catch (_) {}
+    }
+    // Refetch in 2s so UI syncs with actual Redis state
+    setTimeout(() => refetch(), 2000);
+  };
   const handleAdd = (mint) => {
     const buySize = (data.config[activeChain] || {}).buySize || 0.40;
     setPositions(ps => ps.map(p =>
