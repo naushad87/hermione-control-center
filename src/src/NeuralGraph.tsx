@@ -637,6 +637,8 @@ function TopChrome({ meta, status, oracle }) {
         <span>SCALPERS</span>
         <span className="dot" />
         <span>AUTOPSY</span>
+        <span className="dot" />
+        <a href="#sniper" style={{ color: '#3fd07a', textDecoration: 'none', fontWeight: 600 }}>SNIPER ◎</a>
       </nav>
       <div className="top-meta">
         <div><span className="heartbeat-dot" /> HEARTBEAT <strong>{heartbeat}</strong></div>
