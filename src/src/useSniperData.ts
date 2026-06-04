@@ -9,7 +9,8 @@ const EMPTY_DATA = {
     halt_flag: false, halt_threshold_usd: -50.0, service_active: false,
     pnl_7d: { usd: 0, closes: 0, wins: 0 },
     pnl_30d: { usd: 0, closes: 0, wins: 0 },
-    native_prices: { sol: 168.4, bnb: 612.3, eth: 3284.1 },
+    native_prices: { sol: 168.4, bnb: 612.3, eth: 3284.1, sol_change_24h: 0, bnb_change_24h: 0, eth_change_24h: 0 },
+    chain_status: { sol: false, bnb: false, eth: false },
   },
   counters: {
     opens: 0, closes_tp: 0, closes_sl: 0,
@@ -44,7 +45,13 @@ export function useSniperData() {
       const r = await fetch('/api/control/sniper', { cache: 'no-store' });
       if (r.ok) {
         const d = await r.json();
-        setData(d);
+        const merged = { ...d };
+        merged.config = {};
+        const chains = ['sol', 'bnb', 'eth'];
+        chains.forEach(c => {
+          merged.config[c] = { ...EMPTY_DATA.config[c], ...(d.config?.[c] || {}) };
+        });
+        setData(merged);
         setLastFetch(Date.now());
       }
     } catch (_) {}

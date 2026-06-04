@@ -230,14 +230,18 @@ function StatCards({ stats }) {
 function ChainTabs({ activeChain, setActiveChain, stats, config }) {
   const chains = ['sol', 'bnb', 'eth'];
   const prices = stats.native_prices || {};
+  const chainStatus = stats.chain_status || {};
   return (
     <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
       {chains.map((key) => {
         const meta = CHAIN_META[key];
         const on = key === activeChain;
         const cfg = config[key] || {};
-        const enabled = cfg.enabled;
+        const autoEnabled = cfg.auto_enabled ?? cfg.enabled ?? false;
+        const cfgMode = cfg.auto_mode ?? cfg.mode ?? 'dry';
         const price = prices[key] || 0;
+        const chg = prices[`${key}_change_24h`] ?? 0;
+        const serviceActive = chainStatus[key] ?? false;
         return (
           <button key={key} onClick={() => setActiveChain(key)} style={{
             font: 'inherit', cursor: 'pointer', flex: 1, textAlign: 'left',
@@ -252,20 +256,26 @@ function ChainTabs({ activeChain, setActiveChain, stats, config }) {
               justifyContent: 'center', background: meta.color + '22', color: meta.color, fontSize: 15, flexShrink: 0,
             }}>{meta.glyph}</span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <span style={{ color: 'var(--txt-bright)', fontWeight: 700, fontSize: 14 }}>{meta.name}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ color: 'var(--txt-bright)', fontWeight: 700, fontSize: 14 }}>{meta.name}</span>
+                <Dot color={serviceActive ? 'var(--green)' : 'var(--muted-2)'} />
+              </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10 }}>
-                <Dot color={enabled ? 'var(--green)' : 'var(--muted-2)'} />
-                <span style={{ color: enabled ? 'var(--green)' : 'var(--muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                  auto {enabled ? 'on' : 'off'}
+                <Dot color={autoEnabled ? 'var(--green)' : 'var(--muted-2)'} />
+                <span style={{ color: autoEnabled ? 'var(--green)' : 'var(--muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  auto {autoEnabled ? 'on' : 'off'}
                 </span>
                 <span style={{ color: 'var(--muted-2)' }}>·</span>
-                <span style={{ color: 'var(--muted)' }}>{cfg.mode === 'live' ? 'live' : 'dry-run'}</span>
+                <span style={{ color: 'var(--muted)' }}>{cfgMode === 'live' ? 'live' : 'dry-run'}</span>
               </span>
             </div>
             <div style={{ flex: 1 }} />
             <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <span style={{ color: 'var(--txt-bright)', fontWeight: 700, fontSize: 13 }}>
-                ${price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                ${price.toFixed(2)}
+              </span>
+              <span style={{ fontSize: 10, color: chg >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                {chg >= 0 ? '+' : ''}{chg.toFixed(1)}%
               </span>
             </div>
           </button>
@@ -339,13 +349,31 @@ function Stepper({ label, value, suffix, step, min = 0, dp = 0, onChange, disabl
   );
 }
 
+const FIELD_MAP = {
+  sol: { enabled: 'auto_enabled', mode: 'auto_mode', buySize: 'buy_size_sol', maxConc: 'max_concurrent', tp: 'tp_pct', sl: 'sl_pct', slip: 'slippage_pct', minLiq: 'min_liq_usd' },
+  bnb: { enabled: 'auto_enabled', mode: 'auto_mode', buySize: 'position_size_bnb', maxConc: 'max_concurrent', tp: 'tp_pct', sl: 'sl_pct', slip: 'slippage_pct', minLiq: 'min_liq_usd' },
+  eth: { enabled: 'auto_enabled', mode: 'auto_mode', buySize: 'buy_size_eth', maxConc: 'max_concurrent', tp: 'tp_pct', sl: 'sl_pct', slip: 'slippage_pct', minLiq: 'min_liq_usd' },
+};
+
 function AutoTradePanel({ chain, config, updateConfig, nativePrice }) {
   if (!config) return null;
   const meta = CHAIN_META[chain];
-  const enabled = config.enabled;
-  const live = config.mode === 'live';
 
-  const set = (k, v) => updateConfig(chain, { ...config, [k]: v });
+  const enabled = config.auto_enabled ?? config.enabled ?? false;
+  const mode = config.auto_mode ?? config.mode ?? 'dry';
+  const live = mode === 'live';
+  const buySize = config.buy_size_sol ?? config.position_size_bnb ?? config.buy_size_eth ?? config.buySize ?? 0.4;
+  const maxConc = config.max_concurrent ?? config.maxConc ?? 4;
+  const tp = config.tp_pct ?? config.tp ?? 50;
+  const sl = config.sl_pct ?? config.sl ?? 20;
+  const slip = config.slippage_pct ?? config.slip ?? 1.5;
+  const minLiq = (config.min_liq_usd ?? config.minLiq ?? 30000);
+
+  const fieldMap = FIELD_MAP[chain] || FIELD_MAP.sol;
+  const set = (uiKey, v) => {
+    const redisKey = fieldMap[uiKey] || uiKey;
+    updateConfig(chain, { [redisKey]: v });
+  };
 
   const stepCfg = {
     sol: { buyStep: 0.05, buyDp: 2 },
@@ -379,7 +407,7 @@ function AutoTradePanel({ chain, config, updateConfig, nativePrice }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span className="sniper-label" style={{ fontSize: 9 }}>mode</span>
           <Segmented
-            value={config.mode}
+            value={mode}
             onChange={(v) => set('mode', v)}
             options={[{ value: 'dry', label: 'Dry Run' }, { value: 'live', label: 'Live', color: 'var(--red)' }]}
           />
@@ -400,12 +428,12 @@ function AutoTradePanel({ chain, config, updateConfig, nativePrice }) {
 
       {/* params */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 18, paddingTop: 16 }}>
-        <Stepper label="Buy Size" value={config.buySize} suffix={meta.sym} step={sc.buyStep} min={0} dp={sc.buyDp} onChange={(v) => set('buySize', v)} disabled={!enabled} />
-        <Stepper label="Max Concurrent" value={config.maxConc} step={1} min={1} dp={0} onChange={(v) => set('maxConc', v)} disabled={!enabled} />
-        <Stepper label="Take Profit" value={config.tp} suffix="%" step={5} min={5} dp={0} onChange={(v) => set('tp', v)} disabled={!enabled} />
-        <Stepper label="Stop Loss" value={config.sl} suffix="%" step={5} min={5} dp={0} onChange={(v) => set('sl', v)} disabled={!enabled} />
-        <Stepper label="Slippage" value={config.slip} suffix="%" step={0.5} min={0.5} dp={1} onChange={(v) => set('slip', v)} disabled={!enabled} />
-        <Stepper label="Min Liquidity" value={(config.minLiq || 0) / 1000} suffix="K" step={5} min={0} dp={0} onChange={(v) => set('minLiq', v * 1000)} disabled={!enabled} />
+        <Stepper label="Buy Size" value={buySize} suffix={meta.sym} step={sc.buyStep} min={0} dp={sc.buyDp} onChange={(v) => set('buySize', v)} disabled={!enabled} />
+        <Stepper label="Max Concurrent" value={maxConc} step={1} min={1} dp={0} onChange={(v) => set('maxConc', v)} disabled={!enabled} />
+        <Stepper label="Take Profit" value={tp} suffix="%" step={5} min={5} dp={0} onChange={(v) => set('tp', v)} disabled={!enabled} />
+        <Stepper label="Stop Loss" value={sl} suffix="%" step={5} min={5} dp={0} onChange={(v) => set('sl', v)} disabled={!enabled} />
+        <Stepper label="Slippage" value={slip} suffix="%" step={0.5} min={0.5} dp={1} onChange={(v) => set('slip', v)} disabled={!enabled} />
+        <Stepper label="Min Liquidity" value={minLiq / 1000} suffix="K" step={5} min={0} dp={0} onChange={(v) => set('minLiq', v * 1000)} disabled={!enabled} />
       </div>
     </div>
   );
@@ -566,46 +594,18 @@ function CloseButton({ onClose }) {
 }
 
 function AddButton({ onAdd }) {
-  const [stage, setStage] = useState('idle'); // idle | adding | done
-  const stop = (e) => e.stopPropagation();
-  if (stage === 'done') {
-    return (
-      <span onClick={stop} style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 6,
-        background: 'rgba(63,208,122,0.10)', border: '1px solid rgba(63,208,122,0.30)',
-        color: 'var(--green)', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
-      }}>✓ added</span>
-    );
-  }
-  const adding = stage === 'adding';
   return (
-    <button
-      onClick={(e) => {
-        stop(e);
-        if (adding) return;
-        setStage('adding');
-        setTimeout(() => {
-          onAdd();
-          setStage('done');
-          setTimeout(() => setStage('idle'), 1800);
-        }, 650);
-      }}
-      style={{
-        font: 'inherit', cursor: adding ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5,
-        padding: '5px 10px', borderRadius: 6, whiteSpace: 'nowrap', fontSize: 11, fontWeight: 600,
-        background: adding ? 'rgba(227,179,65,0.10)' : 'rgba(63,208,122,0.07)',
-        border: `1px solid ${adding ? 'rgba(227,179,65,0.30)' : 'rgba(63,208,122,0.28)'}`,
-        color: adding ? 'var(--amber)' : 'var(--green)', transition: 'all .12s',
-      }}
-    >
-      {adding ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Dot color="var(--amber)" /> buying…</span> : '↺ enter again'}
-    </button>
+    <span title="Not available — use scanner-e auto-trade" style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px',
+      borderRadius: 6, fontSize: 11, fontWeight: 600, opacity: 0.35, cursor: 'not-allowed',
+      border: '1px solid rgba(63,208,122,0.28)', color: 'var(--green)',
+    }}>↺ enter again</span>
   );
 }
 
 function PositionRow({ p, onClose, onAdd, meta, nativeUsd }) {
   const [open, setOpen] = useState(false);
-  const native = nativeUsd || meta.nativeUsd || 168.4;
+  const native = nativeUsd || 0;
   const sizeUsd = (p.sizeSol || 0) * native;
   const entry = p.entry || 0;
   const price = p.price || 0;
@@ -705,7 +705,7 @@ function PositionRow({ p, onClose, onAdd, meta, nativeUsd }) {
 }
 
 function OpenPositions({ positions, onClose, onAdd, meta, nativeUsd }) {
-  const native = nativeUsd || 168.4;
+  const native = nativeUsd || 0;
   const totalUsd = positions.reduce((a, p) => {
     const sizeUsd = (p.sizeSol || 0) * native;
     const entry = p.entry || 0;
@@ -766,40 +766,12 @@ function OpenPositions({ positions, onClose, onAdd, meta, nativeUsd }) {
  *  JOURNAL                                                           *
  * ----------------------------------------------------------------- */
 function ReenterButton({ onReenter }) {
-  const [stage, setStage] = useState('idle'); // idle | entering | done
-  if (stage === 'done') {
-    return (
-      <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 6,
-        background: 'rgba(63,208,122,0.10)', border: '1px solid rgba(63,208,122,0.30)',
-        color: 'var(--green)', fontSize: 10.5, fontWeight: 600, whiteSpace: 'nowrap',
-      }}>✓ re-entered</span>
-    );
-  }
-  const entering = stage === 'entering';
   return (
-    <button
-      onClick={() => {
-        setStage('entering');
-        setTimeout(() => {
-          onReenter();
-          setStage('done');
-          setTimeout(() => setStage('idle'), 2200);
-        }, 650);
-      }}
-      disabled={entering}
-      style={{
-        font: 'inherit', cursor: entering ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5,
-        padding: '4px 10px', borderRadius: 6, whiteSpace: 'nowrap', fontSize: 10.5, fontWeight: 600,
-        background: entering ? 'rgba(227,179,65,0.10)' : 'rgba(63,208,122,0.07)',
-        border: `1px solid ${entering ? 'rgba(227,179,65,0.30)' : 'rgba(63,208,122,0.28)'}`,
-        color: entering ? 'var(--amber)' : 'var(--green)', transition: 'all .12s',
-      }}
-    >
-      {entering
-        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Dot color="var(--amber)" /> entering…</span>
-        : '↺ enter again'}
-    </button>
+    <span title="Not available — use scanner-e auto-trade" style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px',
+      borderRadius: 6, fontSize: 10.5, fontWeight: 600, opacity: 0.35, cursor: 'not-allowed',
+      border: '1px solid rgba(63,208,122,0.28)', color: 'var(--green)',
+    }}>↺ enter again</span>
   );
 }
 
@@ -955,7 +927,7 @@ function normalizePosition(p, chain) {
     price: p.price ?? p.spot_price_sol ?? p.entry_price_sol ?? 0,
     mcap: p.mcap ?? p.entry_mcap_usd ?? 0,
     liq: p.liq ?? 0,
-    sizeSol: p.sizeSol ?? p.size_sol ?? (p.size_usd ? p.size_usd / 168.4 : 0),
+    sizeSol: p.sizeSol ?? p.size_sol ?? 0,
     tp: p.tp ?? p.tp_price_sol ?? 0,
     sl: p.sl ?? p.sl_price_sol ?? 0,
     opened: p.opened ?? (p.opened_at ? parseFloat(p.opened_at) * 1000 : p.ts_open ?? 0),
@@ -989,11 +961,40 @@ export default function ScannerEDashboard({ onBack }: { onBack: () => void }) {
     }
   }, []);
 
+  // Fix 3 — real-time Dexscreener price poll every 8s for open SOL positions
+  useEffect(() => {
+    const pollPrices = async () => {
+      const openSol = positions.filter(p => p.chain === 'sol' && p.mint);
+      if (!openSol.length) return;
+      try {
+        const mints = openSol.map(p => p.mint).join(',');
+        const r = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mints}`);
+        if (!r.ok) return;
+        const d = await r.json();
+        const priceMap: Record<string, number> = {};
+        (d.pairs || []).forEach(pair => {
+          if (pair.baseToken?.address && pair.priceNative) {
+            priceMap[pair.baseToken.address] = parseFloat(pair.priceNative) || 0;
+          }
+        });
+        if (!Object.keys(priceMap).length) return;
+        setPositions(ps => ps.map(p => {
+          const fresh = priceMap[p.mint];
+          if (!fresh || p.chain !== 'sol') return p;
+          return { ...p, price: fresh };
+        }));
+      } catch (_) {}
+    };
+    pollPrices();
+    const iv = setInterval(pollPrices, 8000);
+    return () => clearInterval(iv);
+  }, [positions.filter(p => p.chain === 'sol').map(p => p.mint).join(',')]);
+
   const meta = CHAIN_META[activeChain];
   const chainPositions = positions.filter(p => p.chain === activeChain);
   const chainJournal = (data.journal[activeChain] || []);
   const chainPaper = (data.paper[activeChain] || []);
-  const nativeUsd = (data.stats.native_prices || {})[activeChain] || 168.4;
+  const nativeUsd = (data.stats.native_prices || {})[activeChain] || 0;
 
   const handleClose = async (pid) => {
     // Optimistic removal
@@ -1008,7 +1009,8 @@ export default function ScannerEDashboard({ onBack }: { onBack: () => void }) {
     setTimeout(() => refetch(), 2000);
   };
   const handleAdd = (mint) => {
-    const buySize = (data.config[activeChain] || {}).buySize || 0.40;
+    const cfg = data.config[activeChain] || {};
+    const buySize = cfg.buy_size_sol ?? cfg.position_size_bnb ?? cfg.buy_size_eth ?? cfg.buySize ?? 0.40;
     setPositions(ps => ps.map(p =>
       p.mint === mint && p.chain === activeChain
         ? { ...p, sizeSol: +(p.sizeSol + buySize).toFixed(4) }
