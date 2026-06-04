@@ -9,8 +9,8 @@ const EMPTY_DATA = {
     halt_flag: false, halt_threshold_usd: -50.0, service_active: false,
     pnl_7d: { usd: 0, closes: 0, wins: 0 },
     pnl_30d: { usd: 0, closes: 0, wins: 0 },
-    native_prices: { sol: 168.4, bnb: 612.3, eth: 3284.1, sol_change_24h: 0, bnb_change_24h: 0, eth_change_24h: 0 },
-    chain_status: { sol: false, bnb: false, eth: false },
+    native_prices: { sol: 168.4, bnb: 612.3, base: 1800.0, sol_change_24h: 0, bnb_change_24h: 0, base_change_24h: 0 },
+    chain_status: { sol: false, bnb: false, base: false },
   },
   counters: {
     opens: 0, closes_tp: 0, closes_sl: 0,
@@ -25,13 +25,13 @@ const EMPTY_DATA = {
     migrations_seen: 0, migrations_dispatched: 0, closes_tp: 0,
     dropout_gating_failed: 0, dropout_entry_price_unavailable: 0, gt_429_count: 0,
   },
-  positions: { sol: [], bnb: [], eth: [] },
-  journal: { sol: [], bnb: [], eth: [] },
-  paper: { sol: [], bnb: [], eth: [] },
+  positions: { sol: [], bnb: [], base: [] },
+  journal: { sol: [], bnb: [], base: [] },
+  paper: { sol: [], bnb: [], base: [] },
   config: {
     sol: { enabled: true, mode: 'live', buySize: 0.40, maxConc: 4, tp: 50, sl: 20, slip: 1.5, minLiq: 30000 },
     bnb: { enabled: false, mode: 'dry', buySize: 0.05, maxConc: 3, tp: 40, sl: 18, slip: 2.0, minLiq: 25000 },
-    eth: { enabled: false, mode: 'dry', buySize: 0.03, maxConc: 2, tp: 35, sl: 15, slip: 1.0, minLiq: 50000 },
+    base: { enabled: false, mode: 'dry', buySize: 0.005, maxConc: 2, tp: 35, sl: 15, slip: 1.0, minLiq: 50000 },
   },
 };
 
@@ -47,7 +47,7 @@ export function useSniperData() {
         const d = await r.json();
         const merged = { ...d };
         merged.config = {};
-        const chains = ['sol', 'bnb', 'eth'];
+        const chains = ['sol', 'bnb', 'base'];
         chains.forEach(c => {
           merged.config[c] = { ...EMPTY_DATA.config[c], ...(d.config?.[c] || {}) };
         });

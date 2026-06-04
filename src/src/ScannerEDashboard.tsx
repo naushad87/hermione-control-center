@@ -68,7 +68,7 @@ const ageStr = (openedMs) => {
 const CHAIN_META = {
   sol: { sym: 'SOL', dexSlug: 'solana', route: 'jupiter', color: '#3fd07a', glyph: '◎', name: 'Solana', gas: '~0.00009 SOL', dex: 'Jupiter' },
   bnb: { sym: 'BNB', dexSlug: 'bsc', route: 'pancakeswap', color: '#e3b341', glyph: '◆', name: 'BNB Chain', gas: '~0.12 USD', dex: 'PancakeSwap' },
-  eth: { sym: 'ETH', dexSlug: 'ethereum', route: 'uniswap-v3', color: '#58a6ff', glyph: '◈', name: 'Ethereum', gas: '~3.40 USD', dex: 'Uniswap v3' },
+  base: { sym: 'ETH', dexSlug: 'base', route: 'uniswap-v3', color: '#0052ff', glyph: '⬡', name: 'Base', gas: '~0.05 USD', dex: 'Uniswap v3' },
 };
 
 /* ----------------------------------------------------------------- *
@@ -228,7 +228,7 @@ function StatCards({ stats }) {
  *  CHAIN TABS                                                        *
  * ----------------------------------------------------------------- */
 function ChainTabs({ activeChain, setActiveChain, stats, config }) {
-  const chains = ['sol', 'bnb', 'eth'];
+  const chains = ['sol', 'bnb', 'base'];
   const prices = stats.native_prices || {};
   const chainStatus = stats.chain_status || {};
   return (
@@ -352,7 +352,7 @@ function Stepper({ label, value, suffix, step, min = 0, dp = 0, onChange, disabl
 const FIELD_MAP = {
   sol: { enabled: 'auto_enabled', mode: 'auto_mode', buySize: 'buy_size_sol', maxConc: 'max_concurrent', tp: 'tp_pct', sl: 'sl_pct', slip: 'slippage_pct', minLiq: 'min_liq_usd' },
   bnb: { enabled: 'auto_enabled', mode: 'auto_mode', buySize: 'position_size_bnb', maxConc: 'max_concurrent', tp: 'tp_pct', sl: 'sl_pct', slip: 'slippage_pct', minLiq: 'min_liq_usd' },
-  eth: { enabled: 'auto_enabled', mode: 'auto_mode', buySize: 'buy_size_eth', maxConc: 'max_concurrent', tp: 'tp_pct', sl: 'sl_pct', slip: 'slippage_pct', minLiq: 'min_liq_usd' },
+  base: { enabled: 'auto_enabled', mode: 'auto_mode', buySize: 'buy_size_eth', maxConc: 'max_concurrent', tp: 'tp_pct', sl: 'sl_pct', slip: 'slippage_pct', minLiq: 'min_liq_usd' },
 };
 
 function AutoTradePanel({ chain, config, updateConfig, nativePrice }) {
@@ -378,7 +378,7 @@ function AutoTradePanel({ chain, config, updateConfig, nativePrice }) {
   const stepCfg = {
     sol: { buyStep: 0.05, buyDp: 2 },
     bnb: { buyStep: 0.01, buyDp: 3 },
-    eth: { buyStep: 0.005, buyDp: 3 },
+    base: { buyStep: 0.005, buyDp: 3 },
   };
   const sc = stepCfg[chain] || { buyStep: 0.05, buyDp: 2 };
 
