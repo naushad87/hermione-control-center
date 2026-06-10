@@ -947,8 +947,8 @@ export default function ScannerEDashboard({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     const rawSol = (data.positions.sol || []).map(p => normalizePosition(p, 'sol'));
     const rawBnb = (data.positions.bnb || []).map(p => normalizePosition(p, 'bnb'));
-    const rawEth = (data.positions.eth || []).map(p => normalizePosition(p, 'eth'));
-    setPositions([...rawSol, ...rawBnb, ...rawEth]);
+    const rawBase = (data.positions.base || []).map(p => normalizePosition(p, 'base'));
+    setPositions([...rawSol, ...rawBnb, ...rawBase]);
   }, [data.positions]);
 
   // inject CSS vars once
